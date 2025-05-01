@@ -18,41 +18,18 @@ import {
   imports: [CommonModule, ScrollingModule],
   template: `
     <div class="wrapper">
-      <!-- 列ヘッダー -->
-      <div class="column-header" [style.left.px]="-scrollLeft">
-        <div class="row-header-cell header-corner"></div>
-        <div
-          class="header-cell"
-          *ngFor="let col of items; let i = index"
-          [style.width.px]="cellWidth"
-        >
-          {{ getColumnLabel(i) }}
-        </div>
-      </div>
-
-      <!-- 横スクロールバー -->
+      <!-- 横スクロールバーだけ分離 -->
       <div #horizontalScrollSync class="horizontal-scroll-sync">
         <div [style.width.px]="totalScrollWidth"></div>
       </div>
 
-      <!-- 本体 -->
+      <!-- 縦スクロール領域 -->
       <div
         #verticalScroll
         class="vertical-scroll-wrapper"
         (scroll)="onScroll()"
       >
         <div [style.height.px]="contentHeight" style="position: relative;">
-          <!-- 行ヘッダー -->
-          <div class="row-header" [style.top.px]="scrollTop">
-            <div
-              class="row-header-cell"
-              *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
-              [style.height.px]="cellHeight"
-            >
-              {{ j + 1 }}
-            </div>
-          </div>
-
           <!-- 横スクロール（中身） -->
           <cdk-virtual-scroll-viewport
             orientation="horizontal"
@@ -64,13 +41,11 @@ import {
             <div
               *cdkVirtualFor="let item of items; trackBy: trackByIndex"
               class="column"
-              [style.width.px]="cellWidth"
             >
               <div
                 *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
                 class="cell"
-                [style.height.px]="cellHeight"
-                [style.top.px]="j * cellHeight"
+                [style.top.px]="j * itemHeight"
               >
                 {{ item.subDivs[j] }}
               </div>
@@ -89,7 +64,6 @@ import {
         display: flex;
         flex-direction: column;
         font-family: sans-serif;
-        position: relative;
       }
 
       .horizontal-scroll-sync {
@@ -97,88 +71,56 @@ import {
         overflow-x: auto;
         background: #eee;
       }
-
       .horizontal-scroll-sync > div {
-        height: 1px;
+        height: 1px; /* 見えないが幅を確保 */
       }
 
       .vertical-scroll-wrapper {
         flex: 1;
-        overflow: auto;
+        overflow-y: auto;
         position: relative;
       }
 
       .horizontal-scroll-wrapper {
         white-space: nowrap;
-        background: white;
+        background: #f8f8f8;
       }
 
       .column {
+        width: 180px;
         display: inline-block;
+        vertical-align: top;
+        margin-right: 8px;
+        border: 1px solid #ccc;
+        background: white;
         position: relative;
+        min-height: 100%;
+        box-sizing: border-box;
       }
 
       .cell {
         position: absolute;
         left: 0;
         right: 0;
+        height: 40px;
+        margin: 2px 0;
+        background: #ccc;
         text-align: center;
         line-height: 40px;
         font-size: 14px;
-        border-bottom: 1px solid #ccc;
-        border-right: 1px solid #ccc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         box-sizing: border-box;
-        background: #fff;
-      }
-
-      .column-header {
-        display: flex;
-        position: sticky;
-        top: 0;
-        z-index: 3;
-        background: #e0e0e0;
-        border-bottom: 1px solid #aaa;
-      }
-
-      .header-cell {
-        height: 40px;
-        line-height: 40px;
-        text-align: center;
-        border-right: 1px solid #ccc;
-        box-sizing: border-box;
-        font-weight: bold;
-        background: #f5f5f5;
-      }
-
-      .header-corner {
-        background: #d0d0d0;
-      }
-
-      .row-header {
-        position: absolute;
-        left: 0;
-        width: 50px;
-        z-index: 2;
-      }
-
-      .row-header-cell {
-        width: 50px;
-        line-height: 44px;
-        background: #f0f0f0;
-        border-bottom: 1px solid #ccc;
-        border-right: 1px solid #ccc;
-        text-align: center;
-        box-sizing: border-box;
-        font-weight: bold;
       }
 
       ::ng-deep .cdk-virtual-scroll-viewport {
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE 10+ */
       }
 
       ::ng-deep .cdk-virtual-scroll-viewport::-webkit-scrollbar {
-        display: none;
+        display: none; /* Chrome, Safari */
       }
     `,
   ],
@@ -189,35 +131,31 @@ export class ExcelLikeComponent implements AfterViewInit {
   @ViewChild('horizontalScrollSync')
   horizontalScrollSyncRef!: ElementRef<HTMLElement>;
 
-  cellHeight = 44;
-  cellWidth = 180;
+  itemHeight = 44;
   buffer = 10;
   scrollTop = 0;
-  scrollLeft = 0;
 
-  items = Array.from({ length: 1000 }, (_, i) => ({
+  items = Array.from({ length: 10000 }, (_, i) => ({
     id: i,
-    subDivs: Array.from({ length: 1000 }, (_, j) => `R${j + 1}C${i + 1}`),
+    subDivs: Array.from({ length: 3000 }, (_, j) => `${i}-${j}`),
   }));
 
   get contentHeight(): number {
-    return this.items[0].subDivs.length * this.cellHeight;
+    return this.items[0].subDivs.length * this.itemHeight;
   }
 
   get totalScrollWidth(): number {
-    return this.items.length * this.cellWidth;
+    return this.items.length * (180 + 8); // item width + margin
   }
 
   onScroll(): void {
-    const el = this.verticalScrollRef.nativeElement;
-    this.scrollTop = el.scrollTop;
-    this.scrollLeft = el.scrollLeft;
+    this.scrollTop = this.verticalScrollRef.nativeElement.scrollTop;
   }
 
   getVisibleIndexes(): number[] {
-    const start = Math.floor(this.scrollTop / this.cellHeight) - this.buffer;
+    const start = Math.floor(this.scrollTop / this.itemHeight) - this.buffer;
     const end =
-      Math.ceil((this.scrollTop + 800) / this.cellHeight) + this.buffer;
+      Math.ceil((this.scrollTop + 800) / this.itemHeight) + this.buffer;
     const from = Math.max(0, start);
     const to = Math.min(this.items[0].subDivs.length, end);
     return Array.from({ length: to - from }, (_, i) => i + from);
@@ -225,15 +163,6 @@ export class ExcelLikeComponent implements AfterViewInit {
 
   trackByIndex(index: number): number {
     return index;
-  }
-
-  getColumnLabel(index: number): string {
-    let label = '';
-    while (index >= 0) {
-      label = String.fromCharCode((index % 26) + 65) + label;
-      index = Math.floor(index / 26) - 1;
-    }
-    return label;
   }
 
   constructor(private zone: NgZone, private cd: ChangeDetectorRef) {}
@@ -252,10 +181,9 @@ export class ExcelLikeComponent implements AfterViewInit {
       mainScroll.scrollLeft = syncScroll.scrollLeft;
     });
 
+    // 初期スクロール位置
     setTimeout(() => {
-      const el = this.verticalScrollRef.nativeElement;
-      this.scrollTop = el.scrollTop;
-      this.scrollLeft = el.scrollLeft;
+      this.scrollTop = this.verticalScrollRef.nativeElement.scrollTop;
     }, 0);
   }
 }
