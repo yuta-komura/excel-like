@@ -18,13 +18,13 @@ import {
   imports: [CommonModule, ScrollingModule],
   template: `
     <div class="wrapper">
-      <!-- ▼縦スクロール：ヘッダー + セル一体化 -->
+      <!-- ▼ヘッダー + セルを縦スクロールにまとめる -->
       <div
         #verticalScroll
         class="vertical-scroll-wrapper"
         (scroll)="onVerticalScroll()"
       >
-        <!-- ▼ヘッダー行（コーナー + アルファベット） -->
+        <!-- ヘッダー -->
         <div class="header-row">
           <div class="corner-spacer"></div>
           <cdk-virtual-scroll-viewport
@@ -44,12 +44,12 @@ import {
           </cdk-virtual-scroll-viewport>
         </div>
 
-        <!-- ▼本体 -->
+        <!-- セル -->
         <div [style.height.px]="contentHeight" class="content-inner">
           <div class="row-number-area">
             <div
-              class="row-number"
               *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
+              class="row-number"
               [style.top.px]="j * rowHeight"
             >
               {{ j + 1 }}
@@ -63,10 +63,7 @@ import {
             class="horizontal-scroll-viewport"
             [style.height.px]="contentHeight"
           >
-            <div
-              *cdkVirtualFor="let item of items; let i = index"
-              class="column"
-            >
+            <div *cdkVirtualFor="let item of items" class="column">
               <div
                 *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
                 class="cell"
@@ -79,9 +76,19 @@ import {
         </div>
       </div>
 
-      <!-- ▼横スクロールバー -->
-      <div #horizontalScrollSync class="horizontal-scroll-sync">
-        <div [style.width.px]="totalScrollWidth"></div>
+      <!-- 横スクロールバー＋右下L字スペーサー -->
+      <div class="horizontal-bar-wrapper">
+        <div #horizontalScrollSync class="horizontal-scroll-sync">
+          <div
+            class="horizontal-scroll-content"
+            [style.width.px]="totalScrollWidth"
+          ></div>
+        </div>
+        <div
+          class="scroll-corner-spacer"
+          [style.width.px]="scrollbarGap || 16"
+          [style.height.px]="scrollbarGap || 16"
+        ></div>
       </div>
     </div>
   `,
@@ -96,6 +103,7 @@ import {
         overflow: hidden;
       }
 
+      /* 縦スクロール領域 */
       .vertical-scroll-wrapper {
         flex: 1;
         overflow-y: auto;
@@ -103,6 +111,7 @@ import {
         position: relative;
       }
 
+      /* ヘッダー */
       .header-row {
         display: flex;
         flex-direction: row;
@@ -140,6 +149,7 @@ import {
         background: #f0f0f0;
       }
 
+      /* セル本体 */
       .content-inner {
         display: flex;
         width: 100%;
@@ -194,7 +204,6 @@ import {
         right: 0;
         height: 44px;
         line-height: 42px;
-        background: white;
         text-align: center;
         font-size: 14px;
         white-space: nowrap;
@@ -206,14 +215,27 @@ import {
         z-index: 1;
       }
 
-      .horizontal-scroll-sync {
+      /* 横スクロールバー + L字スペーサー */
+      .horizontal-bar-wrapper {
+        display: flex;
+        flex-direction: row;
         height: 16px;
-        overflow-x: auto;
         background: #eee;
       }
 
-      .horizontal-scroll-sync > div {
+      .horizontal-scroll-sync {
+        flex: 1;
+        overflow-x: auto;
+        position: relative;
+      }
+
+      .horizontal-scroll-content {
         height: 1px;
+      }
+
+      .scroll-corner-spacer {
+        background: #ddd;
+        flex-shrink: 0;
       }
     `,
   ],
@@ -230,13 +252,14 @@ export class ExcelLikeComponent implements AfterViewInit {
   readonly rowHeight = 44;
   readonly headerHeight = 44;
   readonly buffer = 10;
+  scrollbarGap = 16; // fallback
 
   readonly items = Array.from({ length: 100 }, (_, i) => ({
     id: i,
     subDivs: Array.from({ length: 200 }, (_, j) => `R${j + 1}-C${i + 1}`),
   }));
 
-  constructor(private zone: NgZone, private cd: ChangeDetectorRef) {}
+  constructor(private cd: ChangeDetectorRef) {}
 
   get contentHeight(): number {
     return this.items[0]?.subDivs.length * this.rowHeight;
@@ -258,10 +281,8 @@ export class ExcelLikeComponent implements AfterViewInit {
       Math.ceil(
         (this.scrollTop + 800 - this.headerHeight - 16) / this.rowHeight
       ) + this.buffer;
-
     const from = Math.max(0, start);
     const to = Math.min(this.items[0]?.subDivs.length || 0, end);
-
     return Array.from({ length: to - from }, (_, i) => i + from);
   }
 
@@ -280,41 +301,23 @@ export class ExcelLikeComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     const mainScroll = this.viewportRef.elementRef.nativeElement;
+    const headerScroll = this.headerViewportRef.elementRef.nativeElement;
     const hSync = this.hScrollSyncRef.nativeElement;
-    const hSyncDummy = hSync.firstElementChild as HTMLElement;
-    const headerViewport = this.headerViewportRef.elementRef.nativeElement;
-
-    let isSyncingFromMain = false;
-    let isSyncingFromSync = false;
 
     mainScroll.addEventListener('scroll', () => {
-      if (isSyncingFromSync) return;
-      isSyncingFromMain = true;
-      requestAnimationFrame(() => {
-        const target = mainScroll.scrollLeft;
-        hSync.scrollLeft = target;
-        headerViewport.scrollLeft = target;
-        isSyncingFromMain = false;
-      });
+      hSync.scrollLeft = mainScroll.scrollLeft;
+      headerScroll.scrollLeft = mainScroll.scrollLeft;
     });
 
     hSync.addEventListener('scroll', () => {
-      if (isSyncingFromMain) return;
-      isSyncingFromSync = true;
-      requestAnimationFrame(() => {
-        const clamped = Math.min(
-          hSync.scrollLeft,
-          mainScroll.scrollWidth - mainScroll.clientWidth
-        );
-        mainScroll.scrollLeft = clamped;
-        headerViewport.scrollLeft = clamped;
-        isSyncingFromSync = false;
-      });
+      mainScroll.scrollLeft = hSync.scrollLeft;
+      headerScroll.scrollLeft = hSync.scrollLeft;
     });
 
+    // 縦スクロールバー幅を取得してL字に反映
     setTimeout(() => {
-      hSyncDummy.style.width = `${mainScroll.scrollWidth}px`;
-      this.scrollTop = this.vScrollRef.nativeElement.scrollTop;
+      const vHost = this.vScrollRef.nativeElement;
+      this.scrollbarGap = vHost.offsetWidth - vHost.clientWidth || 16;
       this.cd.detectChanges();
     }, 0);
   }
