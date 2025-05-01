@@ -116,7 +116,6 @@ import {
       .horizontal-scroll-sync {
         height: 16px; /* 通常の scrollbar 高さ */
         overflow-x: auto;
-        overflow-y: hidden;
         background: #eee;
         /* 右端余白は TS 側で margin-right を動的設定 */
       }
@@ -130,7 +129,6 @@ import {
         width: 180px;
         display: inline-block;
         vertical-align: top;
-        margin-right: 8px;
         border: 1px solid #ccc;
         background: #fff;
         position: relative;
@@ -144,8 +142,7 @@ import {
         position: absolute;
         left: 0;
         right: 0;
-        height: 40px;
-        margin: 2px 0;
+        height: 42px;
         background: #ccc;
         text-align: center;
         line-height: 40px;
@@ -230,32 +227,60 @@ export class ExcelLikeComponent implements AfterViewInit {
    * AfterViewInit
    * ────────────────────────────────────────────────────────── */
   ngAfterViewInit(): void {
-    const mainScroll = this.viewportRef.elementRef.nativeElement; // CDK 横スクロール本体
-    const hSync = this.hScrollSyncRef.nativeElement; // 最下部バー
-    const vHost = this.vScrollRef.nativeElement; // 縦スクロール host
+    const mainScroll = this.viewportRef.elementRef.nativeElement;
+    const hSync = this.hScrollSyncRef.nativeElement;
+    const hSyncDummy = hSync.firstElementChild as HTMLElement;
+    const vHost = this.vScrollRef.nativeElement;
 
-    /* 双方向スクロール同期 ------------------------------------------------ */
+    let isSyncingFromMain = false;
+    let isSyncingFromSync = false;
+
+    /** 横スクロール同期（main → hSync） */
     mainScroll.addEventListener('scroll', () => {
-      hSync.scrollLeft = mainScroll.scrollLeft;
-    });
-    hSync.addEventListener('scroll', () => {
-      mainScroll.scrollLeft = hSync.scrollLeft;
+      if (isSyncingFromSync) return;
+      isSyncingFromMain = true;
+
+      requestAnimationFrame(() => {
+        const target = mainScroll.scrollLeft;
+        if (Math.abs(hSync.scrollLeft - target) > 1) {
+          hSync.scrollLeft = target;
+        }
+        isSyncingFromMain = false;
+      });
     });
 
-    /* 縦スクロールバー幅を測定し、横バーの右余白へ反映 -------------------- */
+    /** 横スクロール同期（hSync → main） + clamp */
+    hSync.addEventListener('scroll', () => {
+      if (isSyncingFromMain) return;
+      isSyncingFromSync = true;
+
+      requestAnimationFrame(() => {
+        const maxMainScrollLeft =
+          mainScroll.scrollWidth - mainScroll.clientWidth;
+        const clamped = Math.min(hSync.scrollLeft, maxMainScrollLeft);
+        if (Math.abs(mainScroll.scrollLeft - clamped) > 1) {
+          mainScroll.scrollLeft = clamped;
+        }
+        isSyncingFromSync = false;
+      });
+    });
+
+    /** 横バー幅の調整（右余白） */
     const applyScrollbarGap = () => {
-      const gap = vHost.offsetWidth - vHost.clientWidth; // = 縦バーの幅
+      const gap = vHost.offsetWidth - vHost.clientWidth;
       hSync.style.marginRight = `${gap}px`;
     };
-
-    // 初期化時とリサイズ時に反映
     applyScrollbarGap();
     window.addEventListener('resize', applyScrollbarGap);
 
-    /* 初期スクロール位置を保持 ------------------------------------------- */
+    /** ダミー横幅を CDK に合わせて補正（最大 scrollLeft のズレ解消） */
     setTimeout(() => {
+      const trueScrollWidth = mainScroll.scrollWidth;
+      hSyncDummy.style.width = `${trueScrollWidth}px`;
+      console.log('補正後 hSync ダミー幅 =', hSyncDummy.style.width);
+
       this.scrollTop = vHost.scrollTop;
-      this.cd.detectChanges(); // 初回可視セル計算を確実に
+      this.cd.detectChanges();
     }, 0);
   }
 }
