@@ -18,71 +18,68 @@ import {
   imports: [CommonModule, ScrollingModule],
   template: `
     <div class="wrapper">
-      <!-- ヘッダー（コーナースペーサー + アルファベット） -->
-      <div class="header-row">
-        <div class="corner-spacer"></div>
-        <cdk-virtual-scroll-viewport
-          orientation="horizontal"
-          itemSize="180"
-          class="horizontal-header-viewport"
-          [style.height.px]="headerHeight"
-          [style.overflow]="'hidden'"
-          #headerViewport
-        >
-          <div
-            *cdkVirtualFor="let item of items; let i = index"
-            class="header-cell"
+      <!-- ▼縦スクロール：ヘッダー + セル一体化 -->
+      <div
+        #verticalScroll
+        class="vertical-scroll-wrapper"
+        (scroll)="onVerticalScroll()"
+      >
+        <!-- ▼ヘッダー行（コーナー + アルファベット） -->
+        <div class="header-row">
+          <div class="corner-spacer"></div>
+          <cdk-virtual-scroll-viewport
+            orientation="horizontal"
+            itemSize="180"
+            class="horizontal-header-viewport"
+            [style.height.px]="headerHeight"
+            [style.overflow]="'hidden'"
+            #headerViewport
           >
-            {{ toExcelColumn(i) }}
-          </div>
-          <!-- ✅ スクロールバー幅スペーサー -->
-          <div class="header-end-spacer" [style.width.px]="scrollbarGap"></div>
-        </cdk-virtual-scroll-viewport>
-      </div>
-
-      <!-- 本体（行番号 + セル） -->
-      <div class="content-area">
-        <div
-          #verticalScroll
-          class="vertical-scroll-wrapper"
-          (scroll)="onVerticalScroll()"
-        >
-          <div [style.height.px]="contentHeight" class="content-inner">
-            <div class="row-number-area">
-              <div
-                class="row-number"
-                *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
-                [style.top.px]="j * rowHeight"
-              >
-                {{ j + 1 }}
-              </div>
+            <div
+              *cdkVirtualFor="let item of items; let i = index"
+              class="header-cell"
+            >
+              {{ toExcelColumn(i) }}
             </div>
+          </cdk-virtual-scroll-viewport>
+        </div>
 
-            <cdk-virtual-scroll-viewport
-              #viewport
-              orientation="horizontal"
-              itemSize="180"
-              class="horizontal-scroll-viewport"
-              [style.height.px]="contentHeight"
+        <!-- ▼本体 -->
+        <div [style.height.px]="contentHeight" class="content-inner">
+          <div class="row-number-area">
+            <div
+              class="row-number"
+              *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
+              [style.top.px]="j * rowHeight"
+            >
+              {{ j + 1 }}
+            </div>
+          </div>
+
+          <cdk-virtual-scroll-viewport
+            #viewport
+            orientation="horizontal"
+            itemSize="180"
+            class="horizontal-scroll-viewport"
+            [style.height.px]="contentHeight"
+          >
+            <div
+              *cdkVirtualFor="let item of items; let i = index"
+              class="column"
             >
               <div
-                *cdkVirtualFor="let item of items; let i = index"
-                class="column"
+                *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
+                class="cell"
+                [style.top.px]="j * rowHeight"
               >
-                <div
-                  *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
-                  class="cell"
-                  [style.top.px]="j * rowHeight"
-                >
-                  {{ item.subDivs[j] }}
-                </div>
+                {{ item.subDivs[j] }}
               </div>
-            </cdk-virtual-scroll-viewport>
-          </div>
+            </div>
+          </cdk-virtual-scroll-viewport>
         </div>
       </div>
 
-      <!-- 横スクロールバー -->
+      <!-- ▼横スクロールバー -->
       <div #horizontalScrollSync class="horizontal-scroll-sync">
         <div [style.width.px]="totalScrollWidth"></div>
       </div>
@@ -99,9 +96,20 @@ import {
         overflow: hidden;
       }
 
+      .vertical-scroll-wrapper {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        position: relative;
+      }
+
       .header-row {
         display: flex;
         flex-direction: row;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: #ddd;
       }
 
       .corner-spacer {
@@ -111,7 +119,6 @@ import {
         border-right: 1px solid #ccc;
         border-bottom: 1px solid #ccc;
         flex-shrink: 0;
-        z-index: 10;
       }
 
       .horizontal-header-viewport {
@@ -131,26 +138,6 @@ import {
         box-sizing: border-box;
         border-right: 1px solid #bbb;
         background: #f0f0f0;
-      }
-
-      .header-end-spacer {
-        display: inline-block;
-        height: 100%;
-        background: #ddd;
-      }
-
-      .content-area {
-        flex: 1;
-        overflow: hidden;
-        position: relative;
-      }
-
-      .vertical-scroll-wrapper {
-        height: 100%;
-        width: 100%;
-        overflow-y: auto;
-        position: relative;
-        display: flex;
       }
 
       .content-inner {
@@ -243,9 +230,6 @@ export class ExcelLikeComponent implements AfterViewInit {
   readonly rowHeight = 44;
   readonly headerHeight = 44;
   readonly buffer = 10;
-  readonly viewHeight = 800 - this.headerHeight - 16;
-
-  scrollbarGap = 0; // ✅ ここにスクロールバー幅を保持
 
   readonly items = Array.from({ length: 100 }, (_, i) => ({
     id: i,
@@ -259,7 +243,7 @@ export class ExcelLikeComponent implements AfterViewInit {
   }
 
   get totalScrollWidth(): number {
-    return this.items.length * this.itemWidth + this.scrollbarGap;
+    return this.items.length * this.itemWidth;
   }
 
   private scrollTop = 0;
@@ -271,10 +255,13 @@ export class ExcelLikeComponent implements AfterViewInit {
   getVisibleIndexes(): number[] {
     const start = Math.floor(this.scrollTop / this.rowHeight) - this.buffer;
     const end =
-      Math.ceil((this.scrollTop + this.viewHeight) / this.rowHeight) +
-      this.buffer;
+      Math.ceil(
+        (this.scrollTop + 800 - this.headerHeight - 16) / this.rowHeight
+      ) + this.buffer;
+
     const from = Math.max(0, start);
     const to = Math.min(this.items[0]?.subDivs.length || 0, end);
+
     return Array.from({ length: to - from }, (_, i) => i + from);
   }
 
@@ -296,7 +283,6 @@ export class ExcelLikeComponent implements AfterViewInit {
     const hSync = this.hScrollSyncRef.nativeElement;
     const hSyncDummy = hSync.firstElementChild as HTMLElement;
     const headerViewport = this.headerViewportRef.elementRef.nativeElement;
-    const vHost = this.vScrollRef.nativeElement;
 
     let isSyncingFromMain = false;
     let isSyncingFromSync = false;
@@ -326,21 +312,9 @@ export class ExcelLikeComponent implements AfterViewInit {
       });
     });
 
-    const applyScrollbarGap = () => {
-      const gap = vHost.offsetWidth - vHost.clientWidth;
-      hSync.style.marginRight = `${gap}px`;
-      this.scrollbarGap = gap; // ✅ スクロールバー幅を header-end-spacer に反映
-    };
-
-    applyScrollbarGap();
-    window.addEventListener('resize', () => {
-      applyScrollbarGap();
-      this.cd.detectChanges();
-    });
-
     setTimeout(() => {
       hSyncDummy.style.width = `${mainScroll.scrollWidth}px`;
-      this.scrollTop = vHost.scrollTop;
+      this.scrollTop = this.vScrollRef.nativeElement.scrollTop;
       this.cd.detectChanges();
     }, 0);
   }
