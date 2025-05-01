@@ -1,0 +1,97 @@
+<div class="wrapper">
+  <!-- Header + Vertical Scroll -->
+  <div
+    #verticalScroll
+    class="vertical-scroll-wrapper"
+    (scroll)="onVerticalScroll()"
+  >
+    <!-- Header Row -->
+    <div class="header-row">
+      <div class="corner-spacer"></div>
+      <cdk-virtual-scroll-viewport
+        orientation="horizontal"
+        itemSize="180"
+        class="horizontal-header-viewport"
+        [style.height.px]="headerHeight"
+        [style.overflow]="'hidden'"
+        #headerViewport
+        [minBufferPx]="1000"
+        [maxBufferPx]="3000"
+      >
+        <div
+          *cdkVirtualFor="let item of items; let i = index"
+          class="header-cell"
+        >
+          {{ toExcelColumn(i) }}
+        </div>
+      </cdk-virtual-scroll-viewport>
+    </div>
+
+    <!-- Cell Content -->
+    <div [style.height.px]="contentHeight" class="content-inner">
+      <div class="row-number-area">
+        <div
+          *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
+          class="row-number"
+          [style.top.px]="j * rowHeight"
+        >
+          {{ j + 1 }}
+        </div>
+      </div>
+
+      <cdk-virtual-scroll-viewport
+        #viewport
+        orientation="horizontal"
+        itemSize="180"
+        class="horizontal-scroll-viewport"
+        [style.height.px]="contentHeight"
+        [minBufferPx]="1000"
+        [maxBufferPx]="3000"
+      >
+        <div *cdkVirtualFor="let item of items; let i = index" class="column">
+          <ng-container
+            *ngFor="let j of getVisibleIndexes(); trackBy: trackByIndex"
+          >
+            <div
+              *ngIf="!isEditingCell(i, j); else editCell"
+              class="cell"
+              [style.top.px]="j * rowHeight"
+              [class.selected]="isSelectedCell(i, j)"
+              (click)="selectCell(i, j)"
+              (dblclick)="startEdit(i, j)"
+            >
+              {{ item.subDivs[j] }}
+            </div>
+            <ng-template #editCell>
+              <input
+                class="cell-input"
+                [style.top.px]="j * rowHeight"
+                [value]="item.subDivs[j]"
+                [attr.data-cell-id]="i + '-' + j"
+                (blur)="onCellBlur($event, i, j)"
+                (keydown.enter)="onCellEnter($event, i, j)"
+                (keydown.escape)="cancelEdit()"
+                (keydown)="handleKeydown($event, i, j)"
+              />
+            </ng-template>
+          </ng-container>
+        </div>
+      </cdk-virtual-scroll-viewport>
+    </div>
+  </div>
+
+  <!-- Scroll Bar + Bottom Right Corner -->
+  <div class="horizontal-bar-wrapper">
+    <div #horizontalScrollSync class="horizontal-scroll-sync">
+      <div
+        class="horizontal-scroll-content"
+        [style.width.px]="totalScrollWidth"
+      ></div>
+    </div>
+    <div
+      class="scroll-corner-spacer"
+      [style.width.px]="scrollbarGap || 16"
+      [style.height.px]="scrollbarGap || 16"
+    ></div>
+  </div>
+</div>
