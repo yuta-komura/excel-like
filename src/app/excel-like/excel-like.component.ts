@@ -34,6 +34,8 @@ import {
             [style.height.px]="headerHeight"
             [style.overflow]="'hidden'"
             #headerViewport
+            [minBufferPx]="1000"
+            [maxBufferPx]="3000"
           >
             <div
               *cdkVirtualFor="let item of items; let i = index"
@@ -62,6 +64,8 @@ import {
             itemSize="180"
             class="horizontal-scroll-viewport"
             [style.height.px]="contentHeight"
+            [minBufferPx]="1000"
+            [maxBufferPx]="3000"
           >
             <div *cdkVirtualFor="let item of items" class="column">
               <div
@@ -266,7 +270,7 @@ export class ExcelLikeComponent implements AfterViewInit {
   }
 
   get totalScrollWidth(): number {
-    return this.items.length * this.itemWidth;
+    return this.items.length * this.itemWidth + (this.scrollbarGap || 16);
   }
 
   private scrollTop = 0;
