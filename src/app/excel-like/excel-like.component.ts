@@ -197,8 +197,6 @@ import {
         width: 180px;
         display: inline-block;
         vertical-align: top;
-        border: 1px solid #ccc;
-        background: #fff;
         position: relative;
         box-sizing: border-box;
       }
@@ -209,13 +207,14 @@ import {
         right: 0;
         height: 44px;
         line-height: 42px;
-        background: #ccf;
+        background: white;
         text-align: center;
         font-size: 14px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        border-bottom: 1px solid white;
+        border-bottom: 1px solid #ccc;
+        border-right: 1px solid #ccc;
         box-sizing: border-box;
         z-index: 1;
       }
