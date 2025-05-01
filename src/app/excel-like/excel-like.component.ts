@@ -312,9 +312,20 @@ export class ExcelLikeComponent implements AfterViewInit {
     hSync.addEventListener('scroll', () => {
       mainScroll.scrollLeft = hSync.scrollLeft;
       headerScroll.scrollLeft = hSync.scrollLeft;
+
+      // ✅ スクロールが末端近くまできたら強制的に最終列を描画
+      requestAnimationFrame(() => {
+        const max = mainScroll.scrollWidth - mainScroll.clientWidth;
+        const diff = Math.abs(mainScroll.scrollLeft - max);
+
+        if (diff < 80) {
+          this.viewportRef.scrollToIndex(this.items.length - 1, 'smooth');
+          this.viewportRef.checkViewportSize();
+          this.cd.detectChanges();
+        }
+      });
     });
 
-    // 縦スクロールバー幅を取得してL字に反映
     setTimeout(() => {
       const vHost = this.vScrollRef.nativeElement;
       this.scrollbarGap = vHost.offsetWidth - vHost.clientWidth || 16;
