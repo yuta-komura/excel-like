@@ -4,6 +4,7 @@ import {
   ViewChild,
   AfterViewInit,
   ChangeDetectorRef,
+  NgZone,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
@@ -44,7 +45,7 @@ export class ExcelLikeComponent implements AfterViewInit {
   editingCell: { i: number; j: number } | null = null;
   selectedCell: { i: number; j: number } | null = null;
 
-  constructor(private cd: ChangeDetectorRef) {}
+  constructor(private cd: ChangeDetectorRef, private ngZone: NgZone) {}
 
   get contentHeight(): number {
     return this.items[0]?.subDivs.length * this.rowHeight;
@@ -150,23 +151,25 @@ export class ExcelLikeComponent implements AfterViewInit {
     const headerScroll = this.headerViewportRef.elementRef.nativeElement;
     const hSync = this.hScrollSyncRef.nativeElement;
 
-    mainScroll.addEventListener('scroll', () => {
-      hSync.scrollLeft = mainScroll.scrollLeft;
-      headerScroll.scrollLeft = mainScroll.scrollLeft;
-    });
+    this.ngZone.runOutsideAngular(() => {
+      mainScroll.addEventListener('scroll', () => {
+        hSync.scrollLeft = mainScroll.scrollLeft;
+        headerScroll.scrollLeft = mainScroll.scrollLeft;
+      });
 
-    hSync.addEventListener('scroll', () => {
-      mainScroll.scrollLeft = hSync.scrollLeft;
-      headerScroll.scrollLeft = hSync.scrollLeft;
+      hSync.addEventListener('scroll', () => {
+        mainScroll.scrollLeft = hSync.scrollLeft;
+        headerScroll.scrollLeft = hSync.scrollLeft;
 
-      requestAnimationFrame(() => {
-        const max = mainScroll.scrollWidth - mainScroll.clientWidth;
-        const diff = Math.abs(mainScroll.scrollLeft - max);
-        if (diff < 80) {
-          this.viewportRef.scrollToIndex(this.items.length - 1, 'smooth');
-          this.viewportRef.checkViewportSize();
-          this.cd.detectChanges();
-        }
+        requestAnimationFrame(() => {
+          const max = mainScroll.scrollWidth - mainScroll.clientWidth;
+          const diff = Math.abs(mainScroll.scrollLeft - max);
+          if (diff < 80) {
+            this.viewportRef.scrollToIndex(this.items.length - 1, 'smooth');
+            this.viewportRef.checkViewportSize();
+            this.cd.detectChanges();
+          }
+        });
       });
     });
 
