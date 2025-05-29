@@ -65,7 +65,8 @@ export class ExcelLikeComponent implements AfterViewInit {
     const start = Math.floor(this.scrollTop / this.rowHeight) - this.buffer;
     const end =
       Math.ceil(
-        (this.scrollTop + 800 - this.headerHeight - 16) / this.rowHeight
+        (this.scrollTop + 800 - this.headerHeight - this.scrollbarGap) /
+          this.rowHeight
       ) + this.buffer;
     const from = Math.max(0, start);
     const to = Math.min(this.items[0]?.subDivs.length || 0, end);
