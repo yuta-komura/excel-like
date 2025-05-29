@@ -30,7 +30,7 @@
 
 ## 🛠️ 開発・動作環境
 
-- Angular 17
+- Angular 19
 - Node.js v20
 
 ## ▶️ 開発手順
