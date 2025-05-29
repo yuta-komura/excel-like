@@ -98,6 +98,11 @@ export class ExcelLikeComponent implements AfterViewInit {
   }
 
   startEdit(i: number, j: number): void {
+    const maxRow = this.items[0]?.subDivs.length ?? 0;
+    if (i < 0 || j < 0 || i >= this.items.length || j >= maxRow) {
+      return;
+    }
+
     this.editingCell = { i, j };
     setTimeout(() => {
       const inputEl = document.querySelector(
